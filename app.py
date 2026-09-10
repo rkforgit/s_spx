@@ -171,14 +171,13 @@ spx_index_now = synth_price if synth_price is not None else latest_close
 calls, puts, exp_date = fetch_spx_options(spx_index_now)
 
 if calls is not None and puts is not None:
-    st.subheader(f"Option Chains for Nearest Expiration: `{exp_date}`")
 
     # 1. Puts around Possible Low Price +/- $100
-    put_low_bound = possible_low_price - 100
-    put_high_bound = possible_low_price + 100
+    put_low_bound = possible_low_price - 50
+    put_high_bound = possible_low_price + 50
     filtered_puts = puts[(puts['strike'] >= put_low_bound) & (puts['strike'] <= put_high_bound)]
 
-    st.markdown(f"#### 📉 Puts around Possible Low Price (${possible_low_price:,.2f} ± $100)")
+    st.markdown(f"#### Puts around Possible Low Price")
     st.dataframe(
         filtered_puts.style.format({
             'strike': "${:,.2f}",
@@ -195,7 +194,7 @@ if calls is not None and puts is not None:
     max_possible_price = top_returns['Possible Price'].max()
     filtered_calls = calls[(calls['strike'] >= min_possible_price) & (calls['strike'] <= max_possible_price)]
 
-    st.markdown(f"#### 📈 Calls in Range of Top {num_top_rows} Possible Prices (${min_possible_price:,.2f} – ${max_possible_price:,.2f})")
+    st.markdown(f"#### Calls in Range of Top {num_top_rows} Possible Prices")
     st.dataframe(
         filtered_calls.style.format({
             'strike': "${:,.2f}",
