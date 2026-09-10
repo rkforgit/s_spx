@@ -161,9 +161,7 @@ st.table(
         'Possible Price': "${:,.2f}",
         'Drop_from_ATH_%': "{:.2f}%",
         'Volatility': "{:.4f}"
-    }),
-    use_container_width=True,
-    hide_index=True
+    })
 )
 
 st.markdown("---")
@@ -189,9 +187,7 @@ if calls is not None and puts is not None:
             'ask': "${:,.2f}",
             'impliedVolatility': "{:.2%}",
             'OTM_percent': "{:+.2f}%"
-        }),
-        use_container_width=True,
-        hide_index=True
+        })
     )
 
     # 2. Calls within range of Top 10 Possible Prices
@@ -207,7 +203,5 @@ if calls is not None and puts is not None:
             'ask': "${:,.2f}",
             'impliedVolatility': "{:.2%}",
             'OTM_percent': "{:+.2f}%"
-        }),
-        use_container_width=True,
-        hide_index=True
+        })
     )
