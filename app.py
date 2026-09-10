@@ -152,7 +152,7 @@ top_returns = filtered_spx.nlargest(num_top_rows, 'DailyReturn')
 # Reset index to extract Date column without time component
 top_returns['Date'] = top_returns.index.strftime('%Y-%m-%d')
 
-display_cols = ['DailyReturn', 'Possible Price', 'Drop_from_ATH_%', 'Volatility']
+display_cols = ['Date', 'DailyReturn', 'Possible Price', 'Drop_from_ATH_%', 'Volatility']
 formatted_df = top_returns[display_cols].copy()
 
 st.dataframe(
@@ -162,7 +162,8 @@ st.dataframe(
         'Drop_from_ATH_%': "{:.2f}%",
         'Volatility': "{:.4f}"
     }),
-    use_container_width=True
+    use_container_width=True,
+    hide_index=True
 )
 
 st.markdown("---")
