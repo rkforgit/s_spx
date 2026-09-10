@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import zoneinfo
 
 # Set Streamlit page configuration
 st.set_page_config(page_title="SPX Analysis", layout="wide")
@@ -21,17 +22,14 @@ target_pct = st.sidebar.number_input(
 
 @st.cache_data(ttl=300)
 def load_data(start):
-    # Download historical SPX data
     spx = yf.download("^GSPC", start=start, auto_adjust=True, multi_level_index=False)
     spx.index = pd.to_datetime(spx.index)
 
-    # Calculate backtest metrics
     spx['LogReturn'] = np.log(spx['Close'] / spx['Close'].shift(1))
     spx['Volatility'] = spx['LogReturn'].rolling(window=5).std() * np.sqrt(252)
-    spx['Volatility'] = spx['Volatility'].shift(1)  # Shifted volatility for backtest
+    spx['Volatility'] = spx['Volatility'].shift(1)
     spx['DailyReturn'] = (spx['Close'] - spx['Open']) / spx['Open']
 
-    # Historical ATH and drawdown (using Open prices)
     spx['ATH'] = spx['Open'].cummax()
     spx['Drop_from_ATH_%'] = (spx['Open'] - spx['ATH']) / spx['ATH'] * 100
     
@@ -47,9 +45,14 @@ def fetch_synthetic_spx():
         spx_hist = spx_ticker.history(period="1d")
         spx_close = spx_hist["Close"].iloc[-1]
 
-        es_data = es_data.tz_convert("US/Eastern")
+        eastern_tz = zoneinfo.ZoneInfo("America/New_York")
+        if es_data.index.tz is None:
+            es_data = es_data.tz_localize("UTC").tz_convert(eastern_tz)
+        else:
+            es_data = es_data.tz_convert(eastern_tz)
+
         last_spx_date = spx_hist.index[-1].date()
-        ref_time = pd.Timestamp(f"{last_spx_date} 16:00:00", tz="US/Eastern")
+        ref_time = pd.Timestamp(f"{last_spx_date} 16:00:00", tz=eastern_tz)
 
         es_ref = es_data.loc[:ref_time].iloc[-1]["Close"]
         synthetic_spx = spx_close * (es_data["Close"] / es_ref)
@@ -67,12 +70,40 @@ def fetch_synthetic_spx():
         st.warning(f"Could not calculate Synthetic SPX: {e}")
         return None, None, "N/A"
 
-with st.spinner("Downloading and processing market data..."):
+@st.cache_data(ttl=300)
+def fetch_spx_options(spx_index_now):
+    try:
+        spx_opt = yf.Ticker("^SPX")
+        expirations = spx_opt.options
+        if not expirations:
+            return None, None, "No expirations found"
+            
+        today_exp = expirations[0]
+        opt_chain = spx_opt.option_chain(today_exp)
+        
+        calls = opt_chain.calls
+        puts = opt_chain.puts
+
+        cols = ['lastTradeDate', 'strike', 'bid', 'ask', 'impliedVolatility']
+        
+        # Filter valid bid/ask
+        calls = calls[(calls['bid'] > 0) & (calls['ask'] > 0)][cols].copy()
+        puts = puts[(puts['bid'] > 0) & (puts['ask'] > 0)][cols].copy()
+
+        calls['OTM_percent'] = ((calls['strike'] - spx_index_now) / spx_index_now) * 100
+        puts['OTM_percent'] = ((spx_index_now - puts['strike']) / spx_index_now) * 100
+
+        return calls, puts, today_exp
+    except Exception as e:
+        st.warning(f"Could not fetch options chain: {e}")
+        return None, None, "N/A"
+
+with st.spinner("Downloading market data..."):
     spx = load_data(start_date)
     synth_price, synth_pct, synth_time = fetch_synthetic_spx()
 
 # -------------------------------------------------------------
-# Append Extra Row with Current Day Calculations
+# Extra Row Calculation
 # -------------------------------------------------------------
 current_volatility = spx['LogReturn'].tail(5).std() * np.sqrt(252)
 ath_close = spx['Close'].max()
@@ -85,8 +116,6 @@ extra_row.loc[latest_date, 'Volatility'] = current_volatility
 extra_row.loc[latest_date, 'Drop_from_ATH_%'] = current_drop_ath
 
 spx_extended = pd.concat([spx, extra_row])
-
-# Calculate possible low price based on sidebar input
 possible_low_price = latest_close * (1 + target_pct / 100)
 
 # -------------------------------------------------------------
@@ -110,22 +139,16 @@ else:
 st.markdown("---")
 
 # -------------------------------------------------------------
-# Filtering & Output Display
+# Top Daily Returns Output
 # -------------------------------------------------------------
 st.subheader(f"Top {num_top_rows} Daily Returns (`Drop_from_ATH_%` > Today's Drop)")
 
 threshold_drop = spx_extended.loc[latest_date, 'Drop_from_ATH_%']
-
-# Filter historical data where Drop_from_ATH_% is HIGHER (closer to 0%) than today's value
 filtered_spx = spx[spx['Drop_from_ATH_%'] > threshold_drop].copy()
-
-# Calculate 'Possible Price' based on last SPX close * (1 + DailyReturn)
 filtered_spx['Possible Price'] = latest_close * (1 + filtered_spx['DailyReturn'])
 
-# Sort and retrieve top records
 top_returns = filtered_spx.nlargest(num_top_rows, 'DailyReturn')
 
-# Display Data Table without Open/Close
 display_cols = ['DailyReturn', 'Possible Price', 'Drop_from_ATH_%', 'Volatility']
 formatted_df = top_returns[display_cols].copy()
 
@@ -139,6 +162,47 @@ st.dataframe(
     use_container_width=True
 )
 
-# Visualizing Top Daily Returns
-st.subheader("Top Daily Returns Visualization")
-st.bar_chart(top_returns['DailyReturn'] * 100)
+st.markdown("---")
+
+# -------------------------------------------------------------
+# Options Chains Output
+# -------------------------------------------------------------
+spx_index_now = synth_price if synth_price is not None else latest_close
+calls, puts, exp_date = fetch_spx_options(spx_index_now)
+
+if calls is not None and puts is not None:
+    st.subheader(f"Option Chains for Nearest Expiration: `{exp_date}`")
+
+    # 1. Puts around Possible Low Price +/- $100
+    put_low_bound = possible_low_price - 100
+    put_high_bound = possible_low_price + 100
+    filtered_puts = puts[(puts['strike'] >= put_low_bound) & (puts['strike'] <= put_high_bound)]
+
+    st.markdown(f"#### 📉 Puts around Possible Low Price (${possible_low_price:,.2f} ± $100)")
+    st.dataframe(
+        filtered_puts.style.format({
+            'strike': "${:,.2f}",
+            'bid': "${:,.2f}",
+            'ask': "${:,.2f}",
+            'impliedVolatility': "{:.2%}",
+            'OTM_percent': "{:+.2f}%"
+        }),
+        use_container_width=True
+    )
+
+    # 2. Calls within range of Top 10 Possible Prices
+    min_possible_price = top_returns['Possible Price'].min()
+    max_possible_price = top_returns['Possible Price'].max()
+    filtered_calls = calls[(calls['strike'] >= min_possible_price) & (calls['strike'] <= max_possible_price)]
+
+    st.markdown(f"#### 📈 Calls in Range of Top {num_top_rows} Possible Prices (${min_possible_price:,.2f} – ${max_possible_price:,.2f})")
+    st.dataframe(
+        filtered_calls.style.format({
+            'strike': "${:,.2f}",
+            'bid': "${:,.2f}",
+            'ask': "${:,.2f}",
+            'impliedVolatility': "{:.2%}",
+            'OTM_percent': "{:+.2f}%"
+        }),
+        use_container_width=True
+    )
