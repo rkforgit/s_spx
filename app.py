@@ -186,7 +186,8 @@ if calls is not None and puts is not None:
             'impliedVolatility': "{:.2%}",
             'OTM_percent': "{:+.2f}%"
         }),
-        use_container_width=True
+        use_container_width=True,
+        hide_index=True
     )
 
     # 2. Calls within range of Top 10 Possible Prices
@@ -203,5 +204,6 @@ if calls is not None and puts is not None:
             'impliedVolatility': "{:.2%}",
             'OTM_percent': "{:+.2f}%"
         }),
-        use_container_width=True
+        use_container_width=True,
+        hide_index=True
     )
