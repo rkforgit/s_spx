@@ -155,7 +155,7 @@ top_returns['Date'] = top_returns.index.strftime('%Y-%m-%d')
 display_cols = ['Date', 'DailyReturn', 'Possible Price', 'Drop_from_ATH_%', 'Volatility']
 formatted_df = top_returns[display_cols].copy()
 
-st.dataframe(
+st.table(
     formatted_df.style.format({
         'DailyReturn': "{:.2%}",
         'Possible Price': "${:,.2f}",
@@ -182,7 +182,7 @@ if calls is not None and puts is not None:
     filtered_puts = puts[(puts['strike'] >= put_low_bound) & (puts['strike'] <= put_high_bound)]
 
     st.markdown(f"#### Puts around Possible Low Price")
-    st.dataframe(
+    st.table(
         filtered_puts[['strike','bid','ask','impliedVolatility','OTM_percent']].style.format({
             'strike': "${:,.2f}",
             'bid': "${:,.2f}",
@@ -200,7 +200,7 @@ if calls is not None and puts is not None:
     filtered_calls = calls[(calls['strike'] >= min_possible_price) & (calls['strike'] <= max_possible_price)]
 
     st.markdown(f"#### Calls in Range of Top {num_top_rows} Possible Prices")
-    st.dataframe(
+    st.table(
         filtered_calls[['strike','bid','ask','impliedVolatility','OTM_percent']].style.format({
             'strike': "${:,.2f}",
             'bid': "${:,.2f}",
