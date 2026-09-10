@@ -156,7 +156,7 @@ display_cols = ['Date', 'DailyReturn', 'Possible Price', 'Drop_from_ATH_%', 'Vol
 formatted_df = top_returns[display_cols].copy()
 
 st.table(
-    formatted_df.style.format({
+    formatted_df.style.hide().format({
         'DailyReturn': "{:.2%}",
         'Possible Price': "${:,.2f}",
         'Drop_from_ATH_%': "{:.2f}%",
@@ -181,7 +181,7 @@ if calls is not None and puts is not None:
 
     st.markdown(f"#### Puts around Possible Low Price")
     st.table(
-        filtered_puts[['strike','bid','ask','impliedVolatility','OTM_percent']].style.format({
+        filtered_puts[['strike','bid','ask','impliedVolatility','OTM_percent']].style.hide().format({
             'strike': "${:,.2f}",
             'bid': "${:,.2f}",
             'ask': "${:,.2f}",
@@ -197,7 +197,7 @@ if calls is not None and puts is not None:
 
     st.markdown(f"#### Calls in Range of Top {num_top_rows} Possible Prices")
     st.table(
-        filtered_calls[['strike','bid','ask','impliedVolatility','OTM_percent']].style.format({
+        filtered_calls[['strike','bid','ask','impliedVolatility','OTM_percent']].style.hide().format({
             'strike': "${:,.2f}",
             'bid': "${:,.2f}",
             'ask': "${:,.2f}",
