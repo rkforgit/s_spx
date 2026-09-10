@@ -179,7 +179,7 @@ if calls is not None and puts is not None:
 
     st.markdown(f"#### Puts around Possible Low Price")
     st.dataframe(
-        filtered_puts.style.format({
+        filtered_puts[['strike','bid','ask','impliedVolatility','OTM_percent']].style.format({
             'strike': "${:,.2f}",
             'bid': "${:,.2f}",
             'ask': "${:,.2f}",
@@ -197,7 +197,7 @@ if calls is not None and puts is not None:
 
     st.markdown(f"#### Calls in Range of Top {num_top_rows} Possible Prices")
     st.dataframe(
-        filtered_calls.style.format({
+        filtered_calls[['strike','bid','ask','impliedVolatility','OTM_percent']].style.format({
             'strike': "${:,.2f}",
             'bid': "${:,.2f}",
             'ask': "${:,.2f}",
