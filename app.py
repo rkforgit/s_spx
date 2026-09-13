@@ -64,11 +64,13 @@ def fetch_synthetic_spx():
         })
 
         latest_synth = result.iloc[-1]
-        latest_time = result.index[-1].strftime("%Y-%m-%d %H:%M:%S %Z")
-        return latest_synth["Synthetic"], latest_synth["%"], latest_time
+        # Formatted without seconds and timezone
+        latest_time = result.index[-1].strftime("%Y-%m-%d %H:%M")
+        
+        return latest_synth["Synthetic"], latest_synth["%"], latest_time, result["Synthetic"]
     except Exception as e:
         st.warning(f"Could not calculate Synthetic SPX: {e}")
-        return None, None, "N/A"
+        return None, None, "N/A", None
 
 @st.cache_data(ttl=300)
 def fetch_spx_options(spx_index_now):
@@ -100,7 +102,7 @@ def fetch_spx_options(spx_index_now):
 
 with st.spinner("Downloading market data..."):
     spx = load_data(start_date)
-    synth_price, synth_pct, synth_time = fetch_synthetic_spx()
+    synth_price, synth_pct, synth_time, synth_series = fetch_synthetic_spx()
 
 # -------------------------------------------------------------
 # Extra Row Calculation
@@ -123,18 +125,28 @@ possible_low_price = latest_close * (1 + target_pct / 100)
 # -------------------------------------------------------------
 st.subheader("Reference Metrics (Current Day & Synthetic SPX)")
 
-col1, col2, col3, col4, col5, col6 = st.columns(6)
-col1.metric("Latest SPX Close", f"${latest_close:,.2f}")
-col2.metric("Possible Low Price", f"${possible_low_price:,.2f}", f"{target_pct:+.2f}%")
-col3.metric("Today's Volatility", f"{current_volatility:.4f}")
-col4.metric("Today's Drop from ATH %", f"{current_drop_ath:.2f}%")
+# Row 1: SPX & Volatility Metrics (Prices formatted without decimals)
+row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4)
+row1_col1.metric("Latest SPX Close", f"${latest_close:,.0f}")
+row1_col2.metric("Possible Low Price", f"${possible_low_price:,.0f}", f"{target_pct:+.2f}%")
+row1_col3.metric("Today's Volatility", f"{current_volatility:.4f}")
+row1_col4.metric("Today's Drop from ATH %", f"{current_drop_ath:.2f}%")
 
+# Row 2: Synthetic SPX Metrics
+row2_col1, row2_col2 = st.columns(2)
 if synth_price is not None:
-    col5.metric("Synthetic SPX", f"${synth_price:,.2f}", f"{synth_pct:+.2f}%")
-    col6.metric("Synthetic Datetime", synth_time)
+    row2_col1.metric("Synthetic SPX", f"${synth_price:,.0f}", f"{synth_pct:+.2f}%")
+    row2_col2.metric("Synthetic Datetime", synth_time)
 else:
-    col5.metric("Synthetic SPX", "N/A")
-    col6.metric("Synthetic Datetime", "N/A")
+    row2_col1.metric("Synthetic SPX", "N/A")
+    row2_col2.metric("Synthetic Datetime", "N/A")
+
+# -------------------------------------------------------------
+# Synthetic SPX Line Chart
+# -------------------------------------------------------------
+if synth_series is not None and not synth_series.empty:
+    st.markdown("#### Synthetic SPX Trend")
+    st.line_chart(synth_series)
 
 st.markdown("---")
 
@@ -155,10 +167,11 @@ top_returns['Date'] = top_returns.index.strftime('%Y-%m-%d')
 display_cols = ['Date', 'DailyReturn', 'Possible Price', 'Drop_from_ATH_%', 'Volatility']
 formatted_df = top_returns[display_cols].copy()
 
+# Table with Possible Price formatted without decimal places
 st.table(
     formatted_df.reset_index(drop=True).style.hide().format({
         'DailyReturn': "{:.2%}",
-        'Possible Price': "${:,.2f}",
+        'Possible Price': "${:,.0f}",
         'Drop_from_ATH_%': "{:.2f}%",
         'Volatility': "{:.4f}"
     })
