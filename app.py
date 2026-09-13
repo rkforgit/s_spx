@@ -163,7 +163,7 @@ st.markdown("---")
 # -------------------------------------------------------------
 # Top Daily Returns Output
 # -------------------------------------------------------------
-st.subheader(f"Top {num_top_rows} Daily Returns (`Drop_from_ATH_%` > Today's Drop)")
+st.subheader(f"Top {num_top_rows} Daily Returns (Drop_from_ATH_% > Today's Drop)")
 
 threshold_drop = spx_extended.loc[latest_date, 'Drop_from_ATH_%']
 filtered_spx = spx[spx['Drop_from_ATH_%'] > threshold_drop].copy()
