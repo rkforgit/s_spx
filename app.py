@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import zoneinfo
+import altair as alt
 
 # Set Streamlit page configuration
 st.set_page_config(page_title="SPX Analysis", layout="wide")
@@ -64,7 +65,6 @@ def fetch_synthetic_spx():
         })
 
         latest_synth = result.iloc[-1]
-        # Formatted without seconds and timezone
         latest_time = result.index[-1].strftime("%Y-%m-%d %H:%M")
         
         return latest_synth["Synthetic"], latest_synth["%"], latest_time, result["Synthetic"]
@@ -121,11 +121,9 @@ spx_extended = pd.concat([spx, extra_row])
 possible_low_price = latest_close * (1 + target_pct / 100)
 
 # -------------------------------------------------------------
-# Reference Dashboard
+# Reference Dashboard (Header Removed)
 # -------------------------------------------------------------
-st.subheader("Reference Metrics (Current Day & Synthetic SPX)")
-
-# Row 1: SPX & Volatility Metrics (Prices formatted without decimals)
+# Row 1: SPX & Volatility Metrics
 row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4)
 row1_col1.metric("Latest SPX Close", f"${latest_close:,.0f}")
 row1_col2.metric("Possible Low Price", f"${possible_low_price:,.0f}", f"{target_pct:+.2f}%")
@@ -142,11 +140,23 @@ else:
     row2_col2.metric("Synthetic Datetime", "N/A")
 
 # -------------------------------------------------------------
-# Synthetic SPX Line Chart
+# Synthetic SPX Line Chart (y-axis doesn't start at 0)
 # -------------------------------------------------------------
 if synth_series is not None and not synth_series.empty:
     st.markdown("#### Synthetic SPX Trend")
-    st.line_chart(synth_series)
+    chart_df = synth_series.reset_index()
+    chart_df.columns = ['Time', 'Synthetic SPX']
+
+    chart = (
+        alt.Chart(chart_df)
+        .mark_line()
+        .encode(
+            x='Time:T',
+            y=alt.Y('Synthetic SPX:Q').scale(zero=False)
+        )
+        .properties(height=350)
+    )
+    st.altair_chart(chart, use_container_width=True)
 
 st.markdown("---")
 
@@ -167,7 +177,6 @@ top_returns['Date'] = top_returns.index.strftime('%Y-%m-%d')
 display_cols = ['Date', 'DailyReturn', 'Possible Price', 'Drop_from_ATH_%', 'Volatility']
 formatted_df = top_returns[display_cols].copy()
 
-# Table with Possible Price formatted without decimal places
 st.table(
     formatted_df.reset_index(drop=True).style.hide().format({
         'DailyReturn': "{:.2%}",
@@ -195,7 +204,7 @@ if calls is not None and puts is not None:
     st.markdown(f"#### Puts around Possible Low Price")
     st.table(
         filtered_puts[['strike','bid','ask','impliedVolatility','OTM_percent']].reset_index(drop=True).style.hide().format({
-            'strike': "${:,.2f}",
+            'strike': "${:,.0f}",
             'bid': "${:,.2f}",
             'ask': "${:,.2f}",
             'impliedVolatility': "{:.2%}",
@@ -211,7 +220,7 @@ if calls is not None and puts is not None:
     st.markdown(f"#### Calls in Range of Top {num_top_rows} Possible Prices")
     st.table(
         filtered_calls[['strike','bid','ask','impliedVolatility','OTM_percent']].reset_index(drop=True).style.hide().format({
-            'strike': "${:,.2f}",
+            'strike': "${:,.0f}",
             'bid': "${:,.2f}",
             'ask': "${:,.2f}",
             'impliedVolatility': "{:.2%}",
