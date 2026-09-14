@@ -140,37 +140,49 @@ else:
     row2_col2.metric("Synthetic Datetime", "N/A")
 
 # -------------------------------------------------------------
-# Synthetic SPX Line Chart (After Previous Date Close Time)
+# Synthetic SPX Line Chart (Excluding Non-Trading Days)
 # -------------------------------------------------------------
 if synth_series is not None and not synth_series.empty:
     st.markdown("#### Synthetic SPX Trend")
     chart_df = synth_series.reset_index()
     chart_df.columns = ['Time', 'Synthetic SPX']
 
-    # Filter to keep data starting after 4:00 PM ET of the previous SPX date
     eastern_tz = zoneinfo.ZoneInfo("America/New_York")
     last_spx_date = spx.index[-1].date()
     ref_time = pd.Timestamp(f"{last_spx_date} 16:00:00", tz=eastern_tz)
 
-    chart_df = chart_df[chart_df['Time'] > ref_time]
+    # 1. Keep data strictly after previous SPX close time
+    chart_df = chart_df[chart_df['Time'] > ref_time].copy()
+
+    # 2. Exclude weekends (5 = Saturday, 6 = Sunday)
+    chart_df = chart_df[chart_df['Time'].dt.dayofweek < 5]
+
+    # 3. Exclude non-trading hours (Keep Futures trading session hours)
+    # Market session: Sunday 6:00 PM ET to Friday 5:00 PM ET (daily break 5:00 PM - 6:00 PM ET)
+    chart_df = chart_df[~((chart_df['Time'].dt.hour == 17) & (chart_df['Time'].dt.minute < 60))]
 
     if not chart_df.empty:
         chart = (
             alt.Chart(chart_df)
             .mark_line()
             .encode(
-                x=alt.X('Time:T', title='Time (ET)', axis=alt.Axis(format='%m/%d %H:%M')),
+                x=alt.X(
+                    'Time:T', 
+                    title='Time (ET)', 
+                    axis=alt.Axis(format='%b %d %H:%M', labelAngle=-45)
+                ),
                 y=alt.Y('Synthetic SPX:Q', title='Synthetic SPX').scale(zero=False),
                 tooltip=[
-                    alt.Tooltip('Time:T', format='%Y-%m-%d %H:%M'), 
+                    alt.Tooltip('Time:T', format='%Y-%m-%d %H:%M'),
                     alt.Tooltip('Synthetic SPX:Q', format=',.2f')
                 ]
             )
             .properties(height=350)
+            .interactive()
         )
         st.altair_chart(chart, use_container_width=True)
     else:
-        st.info("No data available after previous date closing time.")
+        st.info("No trading session data available after previous closing time.")
 
 # -------------------------------------------------------------
 # Top Daily Returns Output
