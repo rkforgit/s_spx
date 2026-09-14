@@ -140,28 +140,37 @@ else:
     row2_col2.metric("Synthetic Datetime", "N/A")
 
 # -------------------------------------------------------------
-# Synthetic SPX Line Chart (Synthetic Date Only)
+# Synthetic SPX Line Chart (After Previous Date Close Time)
 # -------------------------------------------------------------
 if synth_series is not None and not synth_series.empty:
     st.markdown("#### Synthetic SPX Trend")
     chart_df = synth_series.reset_index()
     chart_df.columns = ['Time', 'Synthetic SPX']
 
-    # Filter to only keep rows from the latest date
-    latest_date_only = chart_df['Time'].dt.date.max()
-    chart_df = chart_df[chart_df['Time'].dt.date == latest_date_only]
+    # Filter to keep data starting after 4:00 PM ET of the previous SPX date
+    eastern_tz = zoneinfo.ZoneInfo("America/New_York")
+    last_spx_date = spx.index[-1].date()
+    ref_time = pd.Timestamp(f"{last_spx_date} 16:00:00", tz=eastern_tz)
 
-    chart = (
-        alt.Chart(chart_df)
-        .mark_line()
-        .encode(
-            x=alt.X('Time:T', title='Time', axis=alt.Axis(format='%H:%M')),
-            y=alt.Y('Synthetic SPX:Q', title='Synthetic SPX').scale(zero=False),
-            tooltip=[alt.Tooltip('Time:T', format='%Y-%m-%d %H:%M'), alt.Tooltip('Synthetic SPX:Q', format=',.2f')]
+    chart_df = chart_df[chart_df['Time'] > ref_time]
+
+    if not chart_df.empty:
+        chart = (
+            alt.Chart(chart_df)
+            .mark_line()
+            .encode(
+                x=alt.X('Time:T', title='Time (ET)', axis=alt.Axis(format='%m/%d %H:%M')),
+                y=alt.Y('Synthetic SPX:Q', title='Synthetic SPX').scale(zero=False),
+                tooltip=[
+                    alt.Tooltip('Time:T', format='%Y-%m-%d %H:%M'), 
+                    alt.Tooltip('Synthetic SPX:Q', format=',.2f')
+                ]
+            )
+            .properties(height=350)
         )
-        .properties(height=350)
-    )
-    st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        st.info("No data available after previous date closing time.")
 
 # -------------------------------------------------------------
 # Top Daily Returns Output
