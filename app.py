@@ -140,25 +140,28 @@ else:
     row2_col2.metric("Synthetic Datetime", "N/A")
 
 # -------------------------------------------------------------
-# Synthetic SPX Line Chart (y-axis doesn't start at 0)
+# Synthetic SPX Line Chart (Synthetic Date Only)
 # -------------------------------------------------------------
 if synth_series is not None and not synth_series.empty:
     st.markdown("#### Synthetic SPX Trend")
     chart_df = synth_series.reset_index()
     chart_df.columns = ['Time', 'Synthetic SPX']
 
+    # Filter to only keep rows from the latest date
+    latest_date_only = chart_df['Time'].dt.date.max()
+    chart_df = chart_df[chart_df['Time'].dt.date == latest_date_only]
+
     chart = (
         alt.Chart(chart_df)
         .mark_line()
         .encode(
-            x='Time:T',
-            y=alt.Y('Synthetic SPX:Q').scale(zero=False)
+            x=alt.X('Time:T', title='Time', axis=alt.Axis(format='%H:%M')),
+            y=alt.Y('Synthetic SPX:Q', title='Synthetic SPX').scale(zero=False),
+            tooltip=[alt.Tooltip('Time:T', format='%Y-%m-%d %H:%M'), alt.Tooltip('Synthetic SPX:Q', format=',.2f')]
         )
         .properties(height=350)
     )
     st.altair_chart(chart, use_container_width=True)
-
-st.markdown("---")
 
 # -------------------------------------------------------------
 # Top Daily Returns Output
