@@ -80,7 +80,16 @@ def fetch_spx_options(spx_index_now):
         if not expirations:
             return None, None, "No expirations found"
             
-        today_exp = expirations[0]
+        # Get today's date in Eastern Time (YYYY-MM-DD)
+        eastern_tz = zoneinfo.ZoneInfo("America/New_York")
+        today_str = datetime.now(eastern_tz).strftime("%Y-%m-%d")
+
+        # Use today's date if available in expirations; otherwise default to nearest expiration
+        if today_str in expirations:
+            today_exp = today_str
+        else:
+            today_exp = expirations[0]
+            
         opt_chain = spx_opt.option_chain(today_exp)
         
         calls = opt_chain.calls
